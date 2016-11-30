@@ -10,9 +10,9 @@ ByteAddressBuffer booleanOutput : register(u0);
 
 
 [numthreads(16, 16, 4)]
-void main(uint3 DTid : SV_DispatchThreadID)
+void main(uint3 DTid : SV_GroupThreadID, uint3 GroupId : SV_GroupID)
 {
-	uint pos = DTid.x * 512 + DTid.y * 32 + DTid.z * 8;
+	uint pos = SV_GroupID * 8192 + DTid.x * 512 + DTid.y * 32 + DTid.z * 8;
 	uint indices[6];
 
 	uint polySize = 0;

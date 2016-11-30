@@ -295,7 +295,19 @@ extern "C" void Compute()
 
 
 	// dispatch??!!!
-	m_deviceContext->Dispatch(16, 16, 4);
+	
+	int groupAmount = indicesAmount / 1024;			// indicesAmount has to be a multiple of 1024. In fact it is still required to be 2^n for n>=10
+													// it's the number of times DispatchCheck has been called since the last call of Compute or the start of the program
+	int x, y, z;
+	int temp = groupAmount;
+	int bit = 0;
+	while (temp != 1)
+	{
+		bit++;
+		temp = temp >> 1;
+	}
+	
+	m_deviceContext->Dispatch(16,1,1);				// this is temporary. Just pass 2^14 different Indices sets; so call DispatchCheck() 14 times.
 
 
 
