@@ -23,10 +23,10 @@ void Cleanup()
 Initialize() and Cleanup() are to be called at the start and termination of program respectively
 PassVisibilityMatrix(byte*, INT64) will set the GPU Buffer for a 1D array of bools. The first argument bytearray contains 8bit 
 boolean values 0x01 or 0x00. The second argument denotes the vertex amount, not the size of the bytearray (which is the square)
-DispatchCheck will prepare an Index Array of up to 6 byte (the first argument) for calculation.
-Compute() will dispatch the calculation - it is recommended Compute is only called after exactly 1024 calls of DispatchCheck
-have been executed. After Compute() has been called it is recommended to perform additional 1024 calls of DispatchCheck()
-before calling result()
+DispatchCheck will prepare an Index Array of up to 6 byte (the first argument) for calculation. DispatCheck returns the current number of dispatched indices waiting for calculation
+Compute() will dispatch the calculation - it is recommended Compute is only called after exactly 2^n calls of DispatchCheck
+have been executed. After Compute() has been called it is recommended to perform additional 2^k calls of DispatchCheck()
+before calling result() where n,k >=10
 result() will not return until the previous asynchronous Dispatch() (The D3D11 API call) has been completed.
 The return value of result is either negative for a Code, or positive for a Index of an Index array that has been found shattered
 and can be returned by GetIndicesByIndex(INT64). result() returns -2 on a calculation Error (bug); returns -1 on no Shattered Set
@@ -59,7 +59,7 @@ a HAS TO BE IN ASCENDING ORDER! Unused Bytes need to be set to zero. Bytes 7 & 8
 DispatchCheck(0x0000000000000000) causes undefined behaviour (to be fixed)
 
 Compute()
-This currently can only be called safely if exactly MAX_QUEUE_SIZE calls to DispatchCheck(INT64 a) have been made (to be fixed)
+This currently can only be called safely if exactly WORK IN PROGRESS something with 2^n calls to dispatch calls to DispatchCheck(INT64 a) have been made (to be fixed)
 As a temporary Workaround, pass sets that definitely are Not Shattered.
 Note that calling Compute() while Computation is already in progress will cause Undefined Behaviour or crashes.
 Before calling Compute() again always call result() in order to wait for calculation to finish.
