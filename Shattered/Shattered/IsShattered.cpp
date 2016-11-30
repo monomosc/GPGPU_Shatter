@@ -24,7 +24,6 @@
 #include <d3d11.h>
 #include <d3dcompiler.h>
 #include <queue>
-#include <intrin.h>
 
 
 #define MAX_QUEUE_SIZE 1024			// do not change
