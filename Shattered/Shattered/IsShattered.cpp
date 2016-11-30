@@ -173,14 +173,11 @@ extern "C" INT64 DispatchCheck(INT64 indicesPass)
 
 	indicesDispatchQueue.push(indices);
 
-	if (indicesDispatchQueue.size() > MAX_QUEUE_SIZE)
-	{
-		return 1;
-	}
+	
 
 
 
-	return 0;
+	return indicesDispatchQueue.size();					//this is not yet documented, but an API improvement.
 }
 
 
