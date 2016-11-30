@@ -28,7 +28,7 @@
 
 
 #define MAX_QUEUE_SIZE 1024			// do not change
-
+#define QUEUE_SIZE_MULTIPLE
 
 
 ID3D11Device* m_device;
@@ -173,14 +173,11 @@ extern "C" INT64 DispatchCheck(INT64 indicesPass)
 
 	indicesDispatchQueue.push(indices);
 
-	if (indicesDispatchQueue.size() > MAX_QUEUE_SIZE)
-	{
-		return 1;
-	}
 
 
 
-	return 0;
+
+	return indicesDispatchQueue.size();
 }
 
 
@@ -295,7 +292,10 @@ extern "C" void Compute()
 
 
 	// dispatch??!!!
-	m_deviceContext->Dispatch(16, 16, 4);
+	UINT x,y,z;
+	UINT groupAmount=indicesAmount/1024;
+	//TODO calculate group amounts x,y,z so that x*y*z=groupAmount;
+	m_deviceContext->Dispatch(x,y,z);
 
 
 
@@ -306,6 +306,7 @@ extern "C" void Compute()
 //returns -1 for error, -2 for no success; else an index indicating the index of vertices-set that has been found shattered.
 extern "C" INT64 result()
 {
+	INT64 returnValue=-2;
 	D3D11_BUFFER_DESC outputReadBufferDesc;
 	ZeroMemory(&outputReadBufferDesc, sizeof(D3D11_BUFFER_DESC));
 	outputReadBufferDesc.BindFlags = 0;
@@ -353,7 +354,7 @@ extern "C" INT64 result()
 	}
 
 
-	return -1;
+
 	//Clearing stuff out
 
 
@@ -371,7 +372,7 @@ extern "C" INT64 result()
 	m_indicesInputView->Release();
 	m_indicesInputView = 0;
 
-
+	return -1;
 
 
 
