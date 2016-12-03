@@ -1,4 +1,6 @@
 
+
+//Written by Moritz Basel
 // Notes: These Functions contain very few Sanity tests and no Parameter Validation.
 // Passing Illegal Arguments always causes undefined behaviour
 // Calling Functions in the wrong order causes Crashes
@@ -11,7 +13,10 @@
 
 
 
-
+struct IndicesGroup
+{
+	byte index[6];
+};
 
 
 
@@ -24,11 +29,10 @@
 #include <d3d11.h>
 #include <d3dcompiler.h>
 #include <queue>
-#include <intrin.h>
 
 
 #define MAX_QUEUE_SIZE 1024			// do not change
-
+#define QUEUE_SIZE_MULTIPLE
 
 
 ID3D11Device* m_device;
@@ -47,22 +51,18 @@ ID3D11ShaderResourceView* m_visibilityMatrixView;
 
 
 
+IndicesGroup* m_indicesPassArray;
 int m_currentlyCalculatingIndicesAmount;
-std::queue<int*> indicesDispatchQueue;
-std::queue<int*> indicesCalculatingQueue;
+std::queue<IndicesGroup*> m_indicesDispatchQueue;
+std::queue<IndicesGroup*> m_indicesCalculatingQueue;
 
 
 
 
 extern "C" void Initialize()											//Create the device
 {
-	HRESULT res;
-	D3D_FEATURE_LEVEL a = D3D_FEATURE_LEVEL_11_0;
-	D3D_FEATURE_LEVEL b;
-	res = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, NULL, &a, 1, D3D11_SDK_VERSION, &m_device, &b, &m_deviceContext);
+	D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, 0, NULL, NULL, 6, D3D11_SDK_VERSION, &m_device, NULL, &m_deviceContext);
 
-	if (res != S_OK)
-		return;
 	m_visibilityMatrixBuffer = 0;
 	m_visibilityMatrixView = 0;
 
@@ -166,23 +166,23 @@ extern "C" void PassVisibiltyMatrix(byte* matrix, INT64 matSize)			//Matrix is s
 // indices_pass MUST be ordererd lowest to highest and then 0 if checking for subsets of size <6; e.g. [1,23,43,44,0,0] will check for Dimension 4 on the vertices 1,23,43,44		
 // Check for return value! if 1, call compute(); after that result() before next compute()
 //6 concatenated bytes
-extern "C" INT64 DispatchCheck(INT64 indicesPass)
+extern "C" UINT64 DispatchCheck(UINT64 indicesPass)
 {
-	int* indices = new int[6];
+	IndicesGroup* indices = new IndicesGroup();
 	for (int i = 0;i < 6;i++)
 	{
-		indices[i] = (indicesPass & (2 ^ (8 * i))) >> 8 * i;				//splits the Int64 up??!! i think
+		indices.index[i] = (indicesPass & (0xFF << i));			//splits the Int64 up??!! i think
 	}
 
 
 
-	indicesDispatchQueue.push(indices);
-
-	
+	m_indicesDispatchQueue.push(indices);
 
 
 
-	return indicesDispatchQueue.size();					//this is not yet documented, but an API improvement.
+
+
+	return m_indicesDispatchQueue.size();
 }
 
 
@@ -199,25 +199,32 @@ extern "C" void Compute()
 	size_t indicesAmount = indicesDispatchQueue.size();
 	if (indicesAmount == 0) return;
 
-	byte* indicesArray = new byte[indicesAmount * 6];
+
+	//This codeblock is inefficient, as it creates new elements as it deletes them - it would be better to pass around pointers.
+	IndicesGroup* m_indicesPassArray=new IndicesGroup[indicesAmount];
 	for (int i = 0;i < indicesAmount;i++)
 	{
 
 
-		int* key = indicesDispatchQueue.front();
+		IndicesGroup* key = indicesDispatchQueue.front();
 
-		for (int j = 0;j < 5;j++)
-		{
-			indicesArray[i * 6 + j] = key[j];
-		}
 
-		delete[] key;
+
+		m_indicesPassArray[i] = *key;
+		m_indicesCalculatingQueue.push(key);
+
+
+
 		indicesDispatchQueue.pop();
 	}
 	m_currentlyCalculatingIndicesAmount = indicesAmount;
 
-	// indicesArray will be passed to the shader. It holds all indices to be checked in groups of 6 now. so indicesArray[k*6-1] to indicesArray[k*6+5] holds the vertex indices.
-	//indicesCalculatingQueue now holds the indices that are in calculation by GPU after Compute() returns. It will be used to check which Indices are a success
+	// m_indicesPassArray will be passed to the shader. It holds all indices to be checked as a IndicesGroup (size 6 bytes) each
+
+
+
+
+	//m_indicesCalculatingQueue now holds the indices that are in calculation by GPU after Compute() returns. It will be used to check which Indices are a success
 
 
 
@@ -231,13 +238,14 @@ extern "C" void Compute()
 	ZeroMemory(&inputBufferDesc, sizeof(D3D11_BUFFER_DESC));
 	inputBufferDesc.BindFlags = D3D11_BIND_UNORDERED_ACCESS |
 		D3D11_BIND_SHADER_RESOURCE;
-	inputBufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS;
+	inputBufferDesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 	inputBufferDesc.Usage = D3D11_USAGE_IMMUTABLE;
-	inputBufferDesc.ByteWidth = indicesAmount * 6;
+	inputBufferDesc.ByteWidth = indicesAmount * sizeof(IndicesGroup);
+	inputBufferDesc.StructureByteStride=sizeof(IndicesGroup);
 
 	D3D11_SUBRESOURCE_DATA indexData;
 	ZeroMemory(&indexData, sizeof(D3D11_SUBRESOURCE_DATA));
-	indexData.pSysMem = indicesArray;
+	indexData.pSysMem = m_indicesPassArray;
 
 	m_device->CreateBuffer(&inputBufferDesc, &indexData, &m_indicesInputBuffer);
 
@@ -247,9 +255,12 @@ extern "C" void Compute()
 	D3D11_SHADER_RESOURCE_VIEW_DESC inputViewDesc;
 	ZeroMemory(&inputViewDesc, sizeof(D3D11_SHADER_RESOURCE_VIEW_DESC));
 	inputViewDesc.Format = DXGI_FORMAT_UNKNOWN;
-	inputViewDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFEREX;
-	inputViewDesc.BufferEx.Flags = D3D11_BUFFEREX_SRV_FLAG_RAW;
-	inputViewDesc.BufferEx.NumElements = indicesAmount;
+	inputViewDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
+	inputViewDesc.Buffer.FirstElement=0;
+	inputViewDesc.Buffer.ElementOffest=0;
+	inputViewDesc.Buffer.NumElements=indicesAmount;
+	inputViewDesc.Buffer.ElementWidth=sizeof(IndexGroup);
+
 
 
 
@@ -297,19 +308,10 @@ extern "C" void Compute()
 
 
 	// dispatch??!!!
-	
-	int groupAmount = indicesAmount / 1024;			// indicesAmount has to be a multiple of 1024. In fact it is still required to be 2^n for n>=10
-													// it's the number of times DispatchCheck has been called since the last call of Compute or the start of the program
-	int x, y, z;
-	int temp = groupAmount;
-	int bit = 0;
-	while (temp != 1)
-	{
-		bit++;
-		temp = temp >> 1;
-	}
-	
-	m_deviceContext->Dispatch(16,1,1);				// this is temporary. Just pass 2^14 different Indices sets; so call DispatchCheck() 14 times.
+	UINT x,y,z;
+	UINT groupAmount=indicesAmount/1024;
+	//TODO calculate group amounts x,y,z so that x*y*z=groupAmount;
+	m_deviceContext->Dispatch(x,y,z);
 
 
 
@@ -320,6 +322,7 @@ extern "C" void Compute()
 //returns -1 for error, -2 for no success; else an index indicating the index of vertices-set that has been found shattered.
 extern "C" INT64 result()
 {
+	INT64 returnValue=-2;
 	D3D11_BUFFER_DESC outputReadBufferDesc;
 	ZeroMemory(&outputReadBufferDesc, sizeof(D3D11_BUFFER_DESC));
 	outputReadBufferDesc.BindFlags = 0;
@@ -366,8 +369,12 @@ extern "C" INT64 result()
 
 	}
 
+	//Freeing the array passed in Compute()
 
-	return -1;
+	delete [] m_indicesPassArray;
+
+
+
 	//Clearing stuff out
 
 
@@ -385,7 +392,7 @@ extern "C" INT64 result()
 	m_indicesInputView->Release();
 	m_indicesInputView = 0;
 
-
+	return -1;
 
 
 
@@ -395,7 +402,7 @@ extern "C" INT64 result()
 //returns 6 byte denoting the indices of vertices, leading 2 byte unused - do not call without having called result() first. Otherwise, causes UNDEF
 extern "C" INT64 GetIndicesByIndex(INT64 index)
 {
-	int* indices=NULL;
+	int* indices;
 	INT64 indicesReturn = 0;
 	for (int i = 0;i < m_currentlyCalculatingIndicesAmount;i++)
 	{
@@ -429,10 +436,4 @@ extern "C" void Cleanup()												//Duh
 
 
 
-}
-
-void main()
-{
-	Initialize();
-	Cleanup();
 }

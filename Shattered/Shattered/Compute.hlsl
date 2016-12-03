@@ -1,9 +1,13 @@
 
 
 
+struct IndexGroup
+{
+	byte index[6];
+}
 
 ByteAddressBuffer visibilityMatrix : register(t0);
-ByteAddressBuffer indicesFull : register(t1);
+StructuredBuffer<IndexGroup> indicesFull : register(t1);
 
 ByteAddressBuffer booleanOutput : register(u0);
 
