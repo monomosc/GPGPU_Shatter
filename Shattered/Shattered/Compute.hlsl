@@ -10,14 +10,14 @@ ByteAddressBuffer booleanOutput : register(u0);
 
 
 [numthreads(16, 16, 4)]
-void main(uint3 DTid : SV_GroupThreadID, uint3 GroupId : SV_GroupID)
+void main(uint3 DTid : SV_GroupThreadID, uint3 GroupID : SV_GroupID)
 {
-	uint pos = SV_GroupID * 8192 + DTid.x * 512 + DTid.y * 32 + DTid.z * 8;
+	uint pos = GroupID.x * 8192 + DTid.x * 512 + DTid.y * 32 + DTid.z * 8;
 	uint indices[6];
 
 	uint polySize = 0;
 	visibilityMatrix.GetDimensions(polySize);
-	polySize = trunc(sqr(polySize * 8));
+	polySize = trunc(sqrt(polySize * 8));
 
 
 
@@ -26,7 +26,7 @@ void main(uint3 DTid : SV_GroupThreadID, uint3 GroupId : SV_GroupID)
 	uint amount = 0;
 	for (uint i = 0;i < 6;i++)
 	{
-		indices[i] = indicesFull[pos + i];
+		indices[i] = indicesFull.Load
 		if (indices[i] != 0) amount++;
 	}
 	if (indices[0] == 0) amount += 1;

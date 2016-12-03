@@ -56,8 +56,13 @@ std::queue<int*> indicesCalculatingQueue;
 
 extern "C" void Initialize()											//Create the device
 {
-	D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, 0, NULL, NULL, 6, D3D11_SDK_VERSION, &m_device, NULL, &m_deviceContext);
+	HRESULT res;
+	D3D_FEATURE_LEVEL a = D3D_FEATURE_LEVEL_11_0;
+	D3D_FEATURE_LEVEL b;
+	res = D3D11CreateDevice(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, NULL, &a, 1, D3D11_SDK_VERSION, &m_device, &b, &m_deviceContext);
 
+	if (res != S_OK)
+		return;
 	m_visibilityMatrixBuffer = 0;
 	m_visibilityMatrixView = 0;
 
@@ -390,7 +395,7 @@ extern "C" INT64 result()
 //returns 6 byte denoting the indices of vertices, leading 2 byte unused - do not call without having called result() first. Otherwise, causes UNDEF
 extern "C" INT64 GetIndicesByIndex(INT64 index)
 {
-	int* indices;
+	int* indices=NULL;
 	INT64 indicesReturn = 0;
 	for (int i = 0;i < m_currentlyCalculatingIndicesAmount;i++)
 	{
@@ -424,4 +429,10 @@ extern "C" void Cleanup()												//Duh
 
 
 
+}
+
+void main()
+{
+	Initialize();
+	Cleanup();
 }
