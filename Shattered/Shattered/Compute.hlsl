@@ -3,20 +3,24 @@
 
 struct IndexGroup
 {
-	byte index[6];
+	uint index
 }
+
+
+
 
 ByteAddressBuffer visibilityMatrix : register(t0);
 StructuredBuffer<IndexGroup> indicesFull : register(t1);
 
-ByteAddressBuffer booleanOutput : register(u0);
+RWByteAddressBuffer booleanOutput : register(u0);
 
 
 
-[numthreads(16, 16, 4)]
+[numthreads(8, 8, 8)]
 void main(uint3 DTid : SV_GroupThreadID, uint3 GroupID : SV_GroupID)
 {
-	uint pos = GroupID.x * 8192 + DTid.x * 512 + DTid.y * 32 + DTid.z * 8;
+	
+	
 	uint indices[6];
 
 	uint polySize = 0;
@@ -28,11 +32,9 @@ void main(uint3 DTid : SV_GroupThreadID, uint3 GroupID : SV_GroupID)
 
 
 	uint amount = 0;
-	for (uint i = 0;i < 6;i++)
-	{
-		indices[i] = indicesFull.Load
-		if (indices[i] != 0) amount++;
-	}
+	IndexGroup indices= indicesFull[GroupID.x NUMZ*NUMY*8*8*8+ GroupID.y *NUMZ*8*8*8+ GroupID.z *8*8*8+ DTid.x *8*8+ DTid.y*8+DTid.z] //the values in the dispatch call in Compute() of IsShattered.cpp
+
+
 	if (indices[0] == 0) amount += 1;
 
 	uint visibility_p[2];//these two are 64 = 2^6 bits - making it the largest necessary container for a bitfield containing data. VERY UGLY
@@ -67,12 +69,7 @@ void main(uint3 DTid : SV_GroupThreadID, uint3 GroupID : SV_GroupID)
 
 
 
-		if (visibility_p[0] == 4294967295 && visibility_p[1] == 4294967295)
-		{
-			bit = DTid.x * 16 * 4 + DTid.y * 4 + DTid.z;
-
-			booleanOutput[trunc(bit / 8)] = booleanOutput[trunc(bit / 8)] | (1 << (bit % 8))
-		}
+	
 
 
 
@@ -81,6 +78,12 @@ void main(uint3 DTid : SV_GroupThreadID, uint3 GroupID : SV_GroupID)
 
 
 
+	if (visibility_p[0] == 4294967295 && visibility_p[1] == 4294967295)
+	{
+		uint groupBlock = GroupID.x*NUMY*NUMZ * 64 + GroupID.y*NUMZ * 64 + GroupID.z * 64;			// apply correct NUMY and NUMZ values
+		booleanOutput.InterlockedOr(groupBlock+DTid.x*8+((DTid.y & 4) >> 1), (1 << (DTid.z+8*(DTid.y & 3)))			// there might be an issue with byte ordering; since uint is 4 long and i can onl
+
+	}
 
 
 

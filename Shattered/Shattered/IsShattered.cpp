@@ -164,14 +164,14 @@ extern "C" void PassVisibiltyMatrix(byte* matrix, INT64 matSize)			//Matrix is s
 
 
 // indices_pass MUST be ordererd lowest to highest and then 0 if checking for subsets of size <6; e.g. [1,23,43,44,0,0] will check for Dimension 4 on the vertices 1,23,43,44		
-// Check for return value! if 1, call compute(); after that result() before next compute()
+//
 //6 concatenated bytes
 extern "C" UINT64 DispatchCheck(UINT64 indicesPass)
 {
 	IndicesGroup* indices = new IndicesGroup();
 	for (int i = 0;i < 6;i++)
 	{
-		indices.index[i] = (indicesPass & (0xFF << i));			//splits the Int64 up??!! i think
+		indices->index[i] = (indicesPass & (0xFF << i));			//splits the Int64 up??!! i think
 	}
 
 
@@ -188,6 +188,9 @@ extern "C" UINT64 DispatchCheck(UINT64 indicesPass)
 
 
 // DANGER! DO NOT call this method without calling result first; to flush the GPU Queue and to actually get results. Failure to do so results in UNDEF or crash
+// Call this only with a indicesDispatchQueue size of amultiple of 16. This is due to Thread number constraints.
+
+
 extern "C" void Compute()
 {
 
@@ -196,7 +199,7 @@ extern "C" void Compute()
 
 	//reorder the data from the indicesqueue
 
-	size_t indicesAmount = indicesDispatchQueue.size();
+	size_t indicesAmount = m_indicesDispatchQueue.size();
 	if (indicesAmount == 0) return;
 
 
@@ -206,7 +209,7 @@ extern "C" void Compute()
 	{
 
 
-		IndicesGroup* key = indicesDispatchQueue.front();
+		IndicesGroup* key = m_indicesDispatchQueue.front();
 
 
 
@@ -215,7 +218,7 @@ extern "C" void Compute()
 
 
 
-		indicesDispatchQueue.pop();
+		m_indicesDispatchQueue.pop();
 	}
 	m_currentlyCalculatingIndicesAmount = indicesAmount;
 
@@ -255,11 +258,10 @@ extern "C" void Compute()
 	D3D11_SHADER_RESOURCE_VIEW_DESC inputViewDesc;
 	ZeroMemory(&inputViewDesc, sizeof(D3D11_SHADER_RESOURCE_VIEW_DESC));
 	inputViewDesc.Format = DXGI_FORMAT_UNKNOWN;
-	inputViewDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
-	inputViewDesc.Buffer.FirstElement=0;
-	inputViewDesc.Buffer.ElementOffest=0;
-	inputViewDesc.Buffer.NumElements=indicesAmount;
-	inputViewDesc.Buffer.ElementWidth=sizeof(IndexGroup);
+	inputViewDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFEREX;
+	inputViewDesc.BufferEx.FirstElement=0;	
+	inputViewDesc.BufferEx.NumElements=indicesAmount;
+
 
 
 
@@ -308,10 +310,12 @@ extern "C" void Compute()
 
 
 	// dispatch??!!!
-	UINT x,y,z;
-	UINT groupAmount=indicesAmount/1024;
+
 	//TODO calculate group amounts x,y,z so that x*y*z=groupAmount;
-	m_deviceContext->Dispatch(x,y,z);
+
+	int x;
+	x = indicesAmount / (16 * 512);
+	m_deviceContext->Dispatch(x,4,4);
 
 
 
@@ -400,21 +404,21 @@ extern "C" INT64 result()
 }
 
 //returns 6 byte denoting the indices of vertices, leading 2 byte unused - do not call without having called result() first. Otherwise, causes UNDEF
-extern "C" INT64 GetIndicesByIndex(INT64 index)
+extern "C" UINT64 GetIndicesByIndex(INT64 index)
 {
-	int* indices;
-	INT64 indicesReturn = 0;
+	IndicesGroup* indices;
+	UINT64 indicesReturn = 0;
 	for (int i = 0;i < m_currentlyCalculatingIndicesAmount;i++)
 	{
 		if (index == i)
-			indices = indicesCalculatingQueue.front();
+			indices = m_indicesCalculatingQueue.front();
 		if (index != i)
-			delete[] indicesCalculatingQueue.front();
-		indicesCalculatingQueue.pop();
+			delete m_indicesCalculatingQueue.front();
+		m_indicesCalculatingQueue.pop();
 	}
 	for (int i = 0;i < 6;i++)
 	{
-		indicesReturn += indices[i] << (8 * i);				//Should work; concatenates 6 byte
+		indicesReturn += indices->index[i] << (8 * i);				//Should work; concatenates 6 byte
 
 	}
 	return indicesReturn;
@@ -437,3 +441,5 @@ extern "C" void Cleanup()												//Duh
 
 
 }
+
+

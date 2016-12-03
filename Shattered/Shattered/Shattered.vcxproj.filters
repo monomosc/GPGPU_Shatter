@@ -20,8 +20,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Compute.hlsl">
-      <Filter>Quelldateien</Filter>
-    </FxCompile>
+    <None Include="Compute.hlsl" />
   </ItemGroup>
 </Project>
