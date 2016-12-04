@@ -16,6 +16,8 @@
 struct IndicesGroup
 {
 	byte index[6];
+	byte padding[2] = { 0,0 };
+
 };
 
 
@@ -90,7 +92,7 @@ extern "C" void Initialize()											//Create the device
 
 
 //	bytes			
-extern "C" void PassVisibiltyMatrix(byte* matrix, INT64 matSize)			//Matrix is square, so size of the matrix array is size^2; needs to be made into bitfield and passed to constantbuffer 
+extern "C" void PassVisibiltyMatrix(byte* matrix, INT64 matSize)			//Matrix is square, so size of the matrix array is size*size; needs to be made into bitfield and passed to constantbuffer 
 {
 	if (m_visibilityMatrixBuffer != 0)
 	{
@@ -106,7 +108,7 @@ extern "C" void PassVisibiltyMatrix(byte* matrix, INT64 matSize)			//Matrix is s
 
 
 
-	size_t size = (matSize ^ 2) / 8 + 1;
+	size_t size = (matSize * matSize) / 8 + 1;
 
 	byte* matpass = new byte[size];
 
@@ -116,7 +118,7 @@ extern "C" void PassVisibiltyMatrix(byte* matrix, INT64 matSize)			//Matrix is s
 		for (int j = 0;j < 7;j++)
 		{
 
-			Byte = Byte + ((byte)((*(matrix + i * 8 + j)) == 0) ? 0 : 1)*(2 ^ j);
+			Byte = Byte + ((byte)((*(matrix + i * 8 + j)) == 0) ? 0 : 1) << j;
 
 		}
 		matpass[i] = Byte;
@@ -356,7 +358,7 @@ extern "C" INT64 result()
 			byteOffset = i;
 			for (int j = 0;j < 7;j++)
 			{
-				if (2 ^ j & ((byte)(mapped.pData) + i))
+				if ((1 << j) & ((byte)(mapped.pData) + i))
 				{
 					pos = j;
 
