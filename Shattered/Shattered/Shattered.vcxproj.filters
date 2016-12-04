@@ -20,6 +20,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Compute.hlsl" />
+    <FxCompile Include="Compute.hlsl" />
   </ItemGroup>
 </Project>

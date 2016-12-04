@@ -5,20 +5,8 @@
 // Passing Illegal Arguments always causes undefined behaviour
 // Calling Functions in the wrong order causes Crashes
 
-//
 
 
-
-
-
-
-
-struct IndicesGroup
-{
-	byte index[6];
-	byte padding[2] = { 0,0 };
-
-};
 
 
 
@@ -33,8 +21,11 @@ struct IndicesGroup
 #include <queue>
 
 
-#define MAX_QUEUE_SIZE 1024			// do not change
-#define QUEUE_SIZE_MULTIPLE
+struct IndicesGroup
+{
+	byte index[6];
+	byte padding[2];
+};
 
 
 ID3D11Device* m_device;
@@ -118,7 +109,7 @@ extern "C" void PassVisibiltyMatrix(byte* matrix, INT64 matSize)			//Matrix is s
 		for (int j = 0;j < 7;j++)
 		{
 
-			Byte = Byte + ((byte)((*(matrix + i * 8 + j)) == 0) ? 0 : 1) << j;
+			Byte = Byte + (((byte)((*(matrix + i * 8 + j)) == 0) ? 0 : 1) << j);
 
 		}
 		matpass[i] = Byte;
@@ -352,13 +343,13 @@ extern "C" INT64 result()
 	for (int i = 0;i < m_currentlyCalculatingIndicesAmount / 8 + 1;i++)
 	{
 
-		if ((byte)(mapped.pData) + i != 0)
+		if (*((byte*)(mapped.pData)) + i != 0)
 		{
 			success = 1;
 			byteOffset = i;
 			for (int j = 0;j < 7;j++)
 			{
-				if ((1 << j) & ((byte)(mapped.pData) + i))
+				if ((1 << j) & (*((byte*)(mapped.pData)) + i))
 				{
 					pos = j;
 
@@ -408,7 +399,7 @@ extern "C" INT64 result()
 //returns 6 byte denoting the indices of vertices, leading 2 byte unused - do not call without having called result() first. Otherwise, causes UNDEF
 extern "C" UINT64 GetIndicesByIndex(INT64 index)
 {
-	IndicesGroup* indices;
+	IndicesGroup* indices=0;
 	UINT64 indicesReturn = 0;
 	for (int i = 0;i < m_currentlyCalculatingIndicesAmount;i++)
 	{
